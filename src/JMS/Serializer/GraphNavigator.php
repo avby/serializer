@@ -177,7 +177,7 @@ final class GraphNavigator
                             $type = array('name' => get_class($data), 'params' => array());
                         }
                     }
-                } elseif ($context instanceof DeserializationContext && is_object($data)) {
+                } elseif ($context instanceof DeserializationContext) {
                     $context->increaseDepth();
                 }
 

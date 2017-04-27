@@ -187,6 +187,31 @@ abstract class GenericSerializationVisitor extends AbstractVisitor
     }
 
     /**
+     * Allows you to remove data from the current object/root element.
+     *
+     * @param string $key
+     * @throws Exception\InvalidArgumentException
+     */
+    public function removeData($key)
+    {
+        if (!isset($this->data[$key])) {
+            throw new InvalidArgumentException(sprintf('There is no data for "%s".', $key));
+        }
+
+        unset($this->data[$key]);
+    }
+
+    /**
+     * Returns the current object
+     *
+     * @return mixed
+     */
+    public function getData()
+    {
+        return $this->data;
+    }
+
+    /**
      * Allows you to replace existing data on the current object/root element.
      *
      * @param string $key

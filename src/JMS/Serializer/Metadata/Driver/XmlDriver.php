@@ -287,6 +287,15 @@ class XmlDriver extends AbstractFileDriver
                         $pMetadata->inline = 'true' === strtolower($inline);
                     }
 
+                    if (null !== $set = $pElem->attributes()->{'recursion-groups-set'}) {
+                        throw new \Exception('recursion_groups are not implemented for xml');
+                    }
+                    if (null !== $add = $pElem->attributes()->{'recursion-groups-add'}) {
+                        throw new \Exception('recursion_groups are not implemented for xml');
+                    }
+                    if (null !== $remove = $pElem->attributes()->{'recursion-groups-remove'}) {
+                        throw new \Exception('recursion_groups are not implemented for xml');
+                    }
                 }
 
                 if ((ExclusionPolicy::NONE === (string) $exclusionPolicy && ! $isExclude)

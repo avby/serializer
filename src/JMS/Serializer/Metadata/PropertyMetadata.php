@@ -50,6 +50,7 @@ class PropertyMetadata extends BasePropertyMetadata
     public $xmlAttributeMap = false;
     public $maxDepth = null;
     public $excludeIf = null;
+    public $recursionGroups;
 
     private static $typeParser;
 
@@ -134,6 +135,7 @@ class PropertyMetadata extends BasePropertyMetadata
             $this->readOnly,
             $this->xmlAttributeMap,
             $this->maxDepth,
+            $this->recursionGroups,
             parent::serialize(),
             'xmlEntryNamespace' => $this->xmlEntryNamespace,
             'xmlCollectionSkipWhenEmpty' => $this->xmlCollectionSkipWhenEmpty,
@@ -165,6 +167,7 @@ class PropertyMetadata extends BasePropertyMetadata
             $this->readOnly,
             $this->xmlAttributeMap,
             $this->maxDepth,
+            $this->recursionGroups,
             $parentStr
         ) = $unserialized;
 

@@ -20,6 +20,7 @@ namespace JMS\Serializer\Metadata\Driver;
 
 use JMS\Serializer\Annotation\Discriminator;
 use JMS\Serializer\Annotation\ExcludeIf;
+use JMS\Serializer\Annotation\RecursionGroups;
 use JMS\Serializer\Annotation\XmlDiscriminator;
 use JMS\Serializer\GraphNavigator;
 use JMS\Serializer\Annotation\HandlerCallback;
@@ -229,6 +230,12 @@ class AnnotationDriver implements DriverInterface
                         $propertyMetadata->xmlAttributeMap = true;
                     } elseif ($annot instanceof MaxDepth) {
                         $propertyMetadata->maxDepth = $annot->depth;
+                    } elseif ($annot instanceof RecursionGroups) {
+                        $propertyMetadata->groups = empty($propertyMetadata->groups) ?
+                            array_keys($annot->groups) : array_merge($propertyMetadata->groups, array_keys($annot->groups));
+                        foreach ($annot->groups as $ifGroup => $withGroups) {
+                            $propertyMetadata->recursionGroups[$ifGroup] = array_fill_keys($withGroups, true);
+                        }
                     }
                 }
 

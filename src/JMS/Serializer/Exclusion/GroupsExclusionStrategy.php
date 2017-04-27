@@ -38,6 +38,22 @@ class GroupsExclusionStrategy implements ExclusionStrategyInterface
     }
 
     /**
+     * @return array
+     */
+    public function getGroups()
+    {
+        return $this->groups;
+    }
+
+    /**
+     * @param array $groups
+     */
+    public function setGroups($groups)
+    {
+        $this->groups = array_fill_keys($groups, true);
+    }
+
+    /**
      * {@inheritDoc}
      */
     public function shouldSkipClass(ClassMetadata $metadata, Context $navigatorContext)

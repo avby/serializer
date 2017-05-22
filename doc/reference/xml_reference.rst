@@ -35,6 +35,12 @@ XML Reference
                       xml-key-value-pairs="true"
                       xml-attribute-map="true"
                       max-depth="2"
+
+                      <!-- TODO: implement for xml
+                      recursion-groups-set="foo,bar"
+                      recursion-groups-add="foo,bar"
+                      recursion-groups-remove="foo,bar"
+                      -->
             >
                 <!-- You can also specify the type as element which is necessary if
                      your type contains "<" or ">" characters. -->

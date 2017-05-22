@@ -219,6 +219,10 @@ class YamlDriver extends AbstractFileDriver
                     if (isset($pConfig['max_depth'])) {
                         $pMetadata->maxDepth = (int) $pConfig['max_depth'];
                     }
+
+                    if (isset($pConfig['recursion_groups'])) {
+                        throw new \Exception('recursion_groups are not implemented for yaml');
+                    }
                 }
                 if ((ExclusionPolicy::NONE === $exclusionPolicy && ! $isExclude)
                         || (ExclusionPolicy::ALL === $exclusionPolicy && $isExpose)) {

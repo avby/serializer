@@ -25,11 +25,15 @@ use JMS\Serializer\EventDispatcher\PreDeserializeEvent;
 use JMS\Serializer\EventDispatcher\PreSerializeEvent;
 use JMS\Serializer\Exception\ExpressionLanguageRequiredException;
 use JMS\Serializer\Exception\InvalidArgumentException;
+use JMS\Serializer\Exception\LogicException;
 use JMS\Serializer\Exception\RuntimeException;
+use JMS\Serializer\Exclusion\DisjunctExclusionStrategy;
 use JMS\Serializer\Exclusion\ExpressionLanguageExclusionStrategy;
+use JMS\Serializer\Exclusion\GroupsExclusionStrategy;
 use JMS\Serializer\Expression\ExpressionEvaluatorInterface;
 use JMS\Serializer\Handler\HandlerRegistryInterface;
 use JMS\Serializer\Metadata\ClassMetadata;
+use JMS\Serializer\Metadata\PropertyMetadata;
 use Metadata\MetadataFactoryInterface;
 
 /**
@@ -55,6 +59,22 @@ final class GraphNavigator
     private $handlerRegistry;
     private $objectConstructor;
 
+    public function __construct(
+        MetadataFactoryInterface $metadataFactory,
+        HandlerRegistryInterface $handlerRegistry,
+        ObjectConstructorInterface $objectConstructor,
+        EventDispatcherInterface $dispatcher = null,
+        ExpressionEvaluatorInterface $expressionEvaluator = null
+    ) {
+        $this->dispatcher = $dispatcher;
+        $this->metadataFactory = $metadataFactory;
+        $this->handlerRegistry = $handlerRegistry;
+        $this->objectConstructor = $objectConstructor;
+        if ($expressionEvaluator) {
+            $this->expressionExclusionStrategy = new ExpressionLanguageExclusionStrategy($expressionEvaluator);
+        }
+    }
+
     /**
      * Parses a direction string to one of the direction constants.
      *
@@ -76,29 +96,12 @@ final class GraphNavigator
         }
     }
 
-    public function __construct(
-        MetadataFactoryInterface $metadataFactory,
-        HandlerRegistryInterface $handlerRegistry,
-        ObjectConstructorInterface $objectConstructor,
-        EventDispatcherInterface $dispatcher = null,
-        ExpressionEvaluatorInterface $expressionEvaluator = null
-    )
-    {
-        $this->dispatcher = $dispatcher;
-        $this->metadataFactory = $metadataFactory;
-        $this->handlerRegistry = $handlerRegistry;
-        $this->objectConstructor = $objectConstructor;
-        if ($expressionEvaluator) {
-            $this->expressionExclusionStrategy = new ExpressionLanguageExclusionStrategy($expressionEvaluator);
-        }
-    }
-
     /**
      * Called for each node of the graph that is being traversed.
      *
-     * @param mixed $data the data depends on the direction, and type of visitor
+     * @param mixed      $data the data depends on the direction, and type of visitor
      * @param null|array $type array has the format ["name" => string, "params" => array]
-     * @param Context $context
+     * @param Context    $context
      * @return mixed the return value depends on the direction, and type of visitor
      */
     public function accept($data, array $type = null, Context $context)
@@ -117,17 +120,17 @@ final class GraphNavigator
                 $typeName = get_class($data);
             }
 
-            $type = array('name' => $typeName, 'params' => array());
+            $type = ['name' => $typeName, 'params' => []];
         }
         // If the data is null, we have to force the type to null regardless of the input in order to
         // guarantee correct handling of null values, and not have any internal auto-casting behavior.
         else if ($context instanceof SerializationContext && null === $data) {
-            $type = array('name' => 'NULL', 'params' => array());
+            $type = ['name' => 'NULL', 'params' => []];
         }
         // Sometimes data can convey null but is not of a null type.
         // Visitors can have the power to add this custom null evaluation
         if ($visitor instanceof NullAwareVisitorInterface && $visitor->isNull($data) === true) {
-            $type = array('name' => 'NULL', 'params' => array());
+            $type = ['name' => 'NULL', 'params' => []];
         }
 
         switch ($type['name']) {
@@ -162,19 +165,21 @@ final class GraphNavigator
 
             default:
                 // TODO: The rest of this method needs some refactoring.
+                $this->assertObjectOrCustomHandlerForSerialization($data, $type, $context);
+
                 if ($context instanceof SerializationContext) {
-                    if (null !== $data) {
-                        if ($context->isVisiting($data)) {
-                            return null;
-                        }
+                    if (null !== $data && is_object($data)) {
+//                        if ($context->isVisiting($data)) {
+//                            return null;
+//                        }
                         $context->startVisiting($data);
                     }
 
                     // If we're serializing a polymorphic type, then we'll be interested in the
                     // metadata for the actual type of the object, not the base class.
-                    if (class_exists($type['name'], false) || interface_exists($type['name'], false)) {
+                    if (is_object($data) && class_exists($type['name'], false) || interface_exists($type['name'], false)) {
                         if (is_subclass_of($data, $type['name'], false)) {
-                            $type = array('name' => get_class($data), 'params' => array());
+                            $type = ['name' => get_class($data), 'params' => []];
                         }
                     }
                 } elseif ($context instanceof DeserializationContext) {
@@ -238,8 +243,8 @@ final class GraphNavigator
                     $object = $this->objectConstructor->construct($visitor, $metadata, $data, $type, $context);
                 }
 
-                if (isset($metadata->handlerCallbacks[$context->getDirection()][$context->getFormat()])) {
-                    $rs = $object->{$metadata->handlerCallbacks[$context->getDirection()][$context->getFormat()]}(
+                if (isset($metadata->handlerCallbacks[ $context->getDirection() ][ $context->getFormat() ])) {
+                    $rs = $object->{$metadata->handlerCallbacks[ $context->getDirection() ][ $context->getFormat() ]}(
                         $visitor,
                         $context instanceof SerializationContext ? null : $data,
                         $context
@@ -264,7 +269,16 @@ final class GraphNavigator
                     }
 
                     $context->pushPropertyMetadata($propertyMetadata);
+
+                    $originalGroups = $context->attributes->containsKey('groups') ? $context->attributes->get('groups')->get() : null;
+                    $this->applyRecursiveGroups($context);
+
                     $visitor->visitProperty($propertyMetadata, $data, $context);
+
+                    if (null !== $originalGroups) {
+                        $this->changeContextGroups($context, $originalGroups);
+                    }
+
                     $context->popPropertyMetadata();
                 }
 
@@ -281,16 +295,43 @@ final class GraphNavigator
         }
     }
 
+    /**
+     * Asserts during serialization, that provided data is either an object, or has custom handler registered.
+     *
+     * @param mixed                   $data
+     * @param array                   $type
+     * @param \JMS\Serializer\Context $context
+     * @throws \LogicException Thrown, when a primitive type has no custom handler registered.
+     */
+    public function assertObjectOrCustomHandlerForSerialization($data, $type, Context $context)
+    {
+        //Ok during deserialization
+        if ($context->getDirection() === static::DIRECTION_DESERIALIZATION) {
+            return;
+        }
+        //Ok, if data is an object
+        if (is_object($data) || $data === null) {
+            return;
+        }
+        //Ok, if custom handler exists
+        if (null !== $this->handlerRegistry->getHandler($context->getDirection(), $type['name'], $context->getFormat())) {
+            return;
+        }
+
+        //Not ok - throw an exception
+        throw new LogicException('Expected object but got ' . gettype($data) . '. Do you have the wrong @Type mapping or could this be a Doctrine many-to-many relation?');
+    }
+
     private function resolveMetadata($data, ClassMetadata $metadata)
     {
         switch (true) {
-            case is_array($data) && isset($data[$metadata->discriminatorFieldName]):
-                $typeValue = (string)$data[$metadata->discriminatorFieldName];
+            case is_array($data) && isset($data[ $metadata->discriminatorFieldName ]):
+                $typeValue = (string)$data[ $metadata->discriminatorFieldName ];
                 break;
 
             // Check XML attribute for discriminatorFieldName
-            case is_object($data) && $metadata->xmlDiscriminatorAttribute && isset($data[$metadata->discriminatorFieldName]):
-                $typeValue = (string)$data[$metadata->discriminatorFieldName];
+            case is_object($data) && $metadata->xmlDiscriminatorAttribute && isset($data[ $metadata->discriminatorFieldName ]):
+                $typeValue = (string)$data[ $metadata->discriminatorFieldName ];
                 break;
 
             // Check XML element with namespace for discriminatorFieldName
@@ -311,7 +352,7 @@ final class GraphNavigator
                 ));
         }
 
-        if (!isset($metadata->discriminatorMap[$typeValue])) {
+        if (!isset($metadata->discriminatorMap[ $typeValue ])) {
             throw new \LogicException(sprintf(
                 'The type value "%s" does not exist in the discriminator map of class "%s". Available types: %s',
                 $typeValue,
@@ -320,11 +361,66 @@ final class GraphNavigator
             ));
         }
 
-        return $this->metadataFactory->getMetadataForClass($metadata->discriminatorMap[$typeValue]);
+        return $this->metadataFactory->getMetadataForClass($metadata->discriminatorMap[ $typeValue ]);
+    }
+
+    /**
+     * @param Context $context
+     */
+    private function applyRecursiveGroups(Context $context)
+    {
+        if ($context->getMetadataStack() && $context->attributes->containsKey('groups')) {
+            $groups = array_fill_keys($context->attributes->get('groups')->get(), true);
+            $groupModifiers = [];
+            $path = '';
+            foreach ($context->getMetadataStack() as $metadata) {
+                if ($metadata instanceof PropertyMetadata && is_array($metadata->recursionGroups)) {
+                    $path = '.' . $metadata->name . $path;
+                    $groupModifiers[] = $metadata->recursionGroups;
+                }
+            }
+            foreach (array_reverse($groupModifiers) as $modifier) {
+                foreach ($modifier as $ifGroup => $withGroups) {
+                    if (isset($groups[ $ifGroup ])) {
+                        $groups = $withGroups;
+                        break;
+                    }
+                }
+            }
+            $this->changeContextGroups($context, array_keys($groups));
+        }
+    }
+
+    /**
+     * @param Context $context
+     * @param array   $groups
+     */
+    private function changeContextGroups(Context $context, array $groups)
+    {
+        if ($context->attributes->containsKey('groups')) {
+            $context->attributes->set('groups', $groups);
+        }
+        $exclusionStrategy = $context->getExclusionStrategy();
+        if ($exclusionStrategy instanceof DisjunctExclusionStrategy) {
+            foreach ($exclusionStrategy->getStrategies() as $delegate) {
+                if ($delegate instanceof GroupsExclusionStrategy) {
+                    $delegate->setGroups($groups);
+                }
+            }
+
+            return;
+        }
+        if ($exclusionStrategy instanceof GroupsExclusionStrategy) {
+            $exclusionStrategy->setGroups($groups);
+        }
     }
 
     private function leaveScope(Context $context, $data)
     {
+        //Visiting does not exist for primitive types
+        if (!is_object($data) && $data !== null) {
+            return;
+        }
         if ($context instanceof SerializationContext) {
             $context->stopVisiting($data);
         } elseif ($context instanceof DeserializationContext) {

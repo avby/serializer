@@ -54,6 +54,14 @@ class DisjunctExclusionStrategy implements ExclusionStrategyInterface
     }
 
     /**
+     * @return ExclusionStrategyInterface[]|Sequence|SequenceInterface
+     */
+    public function getStrategies()
+    {
+        return $this->delegates;
+    }
+
+    /**
      * Whether the class should be skipped.
      *
      * @param ClassMetadata $metadata

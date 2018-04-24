@@ -24,7 +24,6 @@ use JMS\Serializer\Annotation\AccessorOrder;
 use JMS\Serializer\Annotation\AccessType;
 use JMS\Serializer\Annotation\Discriminator;
 use JMS\Serializer\Annotation\Exclude;
-use JMS\Serializer\Annotation\ExcludeIf;
 use JMS\Serializer\Annotation\ExclusionPolicy;
 use JMS\Serializer\Annotation\Expose;
 use JMS\Serializer\Annotation\Groups;
@@ -35,6 +34,7 @@ use JMS\Serializer\Annotation\PostDeserialize;
 use JMS\Serializer\Annotation\PostSerialize;
 use JMS\Serializer\Annotation\PreSerialize;
 use JMS\Serializer\Annotation\ReadOnly;
+use JMS\Serializer\Annotation\RecursionGroups;
 use JMS\Serializer\Annotation\SerializedName;
 use JMS\Serializer\Annotation\Since;
 use JMS\Serializer\Annotation\SkipWhenEmpty;
@@ -74,8 +74,8 @@ class AnnotationDriver implements DriverInterface
         $classMetadata = new ClassMetadata($name = $class->name);
         $classMetadata->fileResources[] = $class->getFilename();
 
-        $propertiesMetadata = array();
-        $propertiesAnnotations = array();
+        $propertiesMetadata = [];
+        $propertiesAnnotations = [];
 
         $exclusionPolicy = 'NONE';
         $excludeAll = false;
@@ -158,9 +158,9 @@ class AnnotationDriver implements DriverInterface
                     || $propertyMetadata instanceof ExpressionPropertyMetadata;
                 $propertyMetadata->readOnly = $propertyMetadata->readOnly || $readOnlyClass;
                 $accessType = $classAccessType;
-                $accessor = array(null, null);
+                $accessor = [null, null];
 
-                $propertyAnnotations = $propertiesAnnotations[$propertyKey];
+                $propertyAnnotations = $propertiesAnnotations[ $propertyKey ];
 
                 foreach ($propertyAnnotations as $annot) {
                     if ($annot instanceof Since) {
@@ -215,7 +215,7 @@ class AnnotationDriver implements DriverInterface
                     } elseif ($annot instanceof ReadOnly) {
                         $propertyMetadata->readOnly = $annot->readOnly;
                     } elseif ($annot instanceof Accessor) {
-                        $accessor = array($annot->getter, $annot->setter);
+                        $accessor = [$annot->getter, $annot->setter];
                     } elseif ($annot instanceof Groups) {
                         $propertyMetadata->groups = $annot->groups;
                         foreach ((array)$propertyMetadata->groups as $groupName) {
@@ -233,6 +233,12 @@ class AnnotationDriver implements DriverInterface
                         $propertyMetadata->xmlAttributeMap = true;
                     } elseif ($annot instanceof MaxDepth) {
                         $propertyMetadata->maxDepth = $annot->depth;
+                    } elseif ($annot instanceof RecursionGroups) {
+                        $propertyMetadata->groups = empty($propertyMetadata->groups) ?
+                            array_keys($annot->groups) : array_merge($propertyMetadata->groups, array_keys($annot->groups));
+                        foreach ($annot->groups as $ifGroup => $withGroups) {
+                            $propertyMetadata->recursionGroups[ $ifGroup ] = array_fill_keys($withGroups, true);
+                        }
                     }
                 }
 

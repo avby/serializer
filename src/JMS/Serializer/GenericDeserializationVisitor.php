@@ -1,21 +1,5 @@
 <?php
 
-/*
- * Copyright 2016 Johannes M. Schmitt <schmittjoh@gmail.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace JMS\Serializer;
 
 use JMS\Serializer\Exception\RuntimeException;
@@ -26,7 +10,7 @@ use JMS\Serializer\Naming\PropertyNamingStrategyInterface;
 
 /**
  * Generic Deserialization Visitor.
- *
+ * @deprecated
  * @author Johannes M. Schmitt <schmittjoh@gmail.com>
  */
 abstract class GenericDeserializationVisitor extends AbstractVisitor
@@ -104,8 +88,8 @@ abstract class GenericDeserializationVisitor extends AbstractVisitor
 
     public function visitArray($data, array $type, Context $context)
     {
-        if (!is_array($data)) {
-            throw new RuntimeException(sprintf('Expected array, but got %s: %s', gettype($data), json_encode($data)));
+        if (!\is_array($data)) {
+            throw new RuntimeException(sprintf('Expected array, but got %s: %s', \gettype($data), json_encode($data)));
         }
 
         // If no further parameters were given, keys/values are just passed as is.
@@ -117,7 +101,7 @@ abstract class GenericDeserializationVisitor extends AbstractVisitor
             return $data;
         }
 
-        switch (count($type['params'])) {
+        switch (\count($type['params'])) {
             case 1: // Array is a list.
                 $listType = $type['params'][0];
 
@@ -172,7 +156,7 @@ abstract class GenericDeserializationVisitor extends AbstractVisitor
             return;
         }
 
-        if (!is_array($data)) {
+        if (!\is_array($data)) {
             throw new RuntimeException(sprintf('Invalid data "%s"(%s), expected "%s".', $data, $metadata->type['name'], $metadata->reflection->class));
         }
 

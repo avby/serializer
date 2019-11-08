@@ -1,21 +1,5 @@
 <?php
 
-/*
- * Copyright 2016 Johannes M. Schmitt <schmittjoh@gmail.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace JMS\Serializer\Util;
 
 use JMS\Serializer\Exception\RuntimeException;
@@ -70,7 +54,7 @@ class Writer
     {
         $change = array_pop($this->changes);
         $this->changeCount -= 1;
-        $this->content = substr($this->content, 0, -1 * strlen($change));
+        $this->content = substr($this->content, 0, -1 * \strlen($change));
     }
 
     /**
@@ -83,7 +67,7 @@ class Writer
         $addition = '';
 
         $lines = explode("\n", $content);
-        for ($i = 0, $c = count($lines); $i < $c; $i++) {
+        for ($i = 0, $c = \count($lines); $i < $c; $i++) {
             if ($this->indentationLevel > 0
                 && !empty($lines[$i])
                 && ((empty($addition) && "\n" === substr($this->content, -1)) || "\n" === substr($addition, -1))

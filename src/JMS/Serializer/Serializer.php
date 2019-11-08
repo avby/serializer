@@ -1,21 +1,5 @@
 <?php
 
-/*
- * Copyright 2016 Johannes M. Schmitt <schmittjoh@gmail.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace JMS\Serializer;
 
 use JMS\Serializer\Construction\ObjectConstructorInterface;
@@ -148,11 +132,11 @@ class Serializer implements SerializerInterface, ArrayTransformerInterface
                 $this->visit($visitor, $context, $data, 'json', $type);
                 $result = $this->convertArrayObjects($visitor->getRoot());
 
-                if (!is_array($result)) {
+                if (!\is_array($result)) {
                     throw new RuntimeException(sprintf(
                         'The input data of type "%s" did not convert to an array, but got a result of type "%s".',
-                        is_object($data) ? get_class($data) : gettype($data),
-                        is_object($result) ? get_class($result) : gettype($result)
+                        \is_object($data) ? \get_class($data) : \gettype($data),
+                        \is_object($result) ? \get_class($result) : \gettype($result)
                     ));
                 }
 
@@ -208,7 +192,7 @@ class Serializer implements SerializerInterface, ArrayTransformerInterface
         if ($data instanceof \ArrayObject || $data instanceof \stdClass) {
             $data = (array)$data;
         }
-        if (is_array($data)) {
+        if (\is_array($data)) {
             foreach ($data as $k => $v) {
                 $data[$k] = $this->convertArrayObjects($v);
             }

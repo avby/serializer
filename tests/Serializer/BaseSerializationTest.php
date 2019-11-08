@@ -1,21 +1,5 @@
 <?php
 
-/*
- * Copyright 2016 Johannes M. Schmitt <schmittjoh@gmail.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace JMS\Serializer\Tests\Serializer;
 
 use Doctrine\Common\Annotations\AnnotationReader;
@@ -41,6 +25,7 @@ use JMS\Serializer\Handler\StdClassHandler;
 use JMS\Serializer\JsonDeserializationVisitor;
 use JMS\Serializer\JsonSerializationVisitor;
 use JMS\Serializer\Metadata\Driver\AnnotationDriver;
+use JMS\Serializer\Metadata\Driver\YamlDriver;
 use JMS\Serializer\Naming\CamelCaseNamingStrategy;
 use JMS\Serializer\Naming\SerializedNameAnnotationStrategy;
 use JMS\Serializer\SerializationContext;
@@ -81,11 +66,13 @@ use JMS\Serializer\Tests\Fixtures\MaxDepth\Gh236Foo;
 use JMS\Serializer\Tests\Fixtures\NamedDateTimeArraysObject;
 use JMS\Serializer\Tests\Fixtures\NamedDateTimeImmutableArraysObject;
 use JMS\Serializer\Tests\Fixtures\Node;
+use JMS\Serializer\Tests\Fixtures\ObjectUsingTypeCasting;
 use JMS\Serializer\Tests\Fixtures\ObjectWithEmptyHash;
 use JMS\Serializer\Tests\Fixtures\ObjectWithEmptyNullableAndEmptyArrays;
 use JMS\Serializer\Tests\Fixtures\ObjectWithIntListAndIntMap;
 use JMS\Serializer\Tests\Fixtures\ObjectWithLifecycleCallbacks;
 use JMS\Serializer\Tests\Fixtures\ObjectWithNullProperty;
+use JMS\Serializer\Tests\Fixtures\ObjectWithToString;
 use JMS\Serializer\Tests\Fixtures\ObjectWithVersionedVirtualProperties;
 use JMS\Serializer\Tests\Fixtures\ObjectWithVirtualProperties;
 use JMS\Serializer\Tests\Fixtures\Order;
@@ -97,8 +84,10 @@ use JMS\Serializer\Tests\Fixtures\PersonSecretMoreVirtual;
 use JMS\Serializer\Tests\Fixtures\PersonSecretVirtual;
 use JMS\Serializer\Tests\Fixtures\Price;
 use JMS\Serializer\Tests\Fixtures\Publisher;
+use JMS\Serializer\Tests\Fixtures\SimpleInternalObject;
 use JMS\Serializer\Tests\Fixtures\SimpleObject;
 use JMS\Serializer\Tests\Fixtures\SimpleObjectProxy;
+use JMS\Serializer\Tests\Fixtures\SimpleObjectWithStaticProp;
 use JMS\Serializer\Tests\Fixtures\Tag;
 use JMS\Serializer\Tests\Fixtures\Timestamp;
 use JMS\Serializer\Tests\Fixtures\Tree;
@@ -107,6 +96,7 @@ use JMS\Serializer\VisitorInterface;
 use JMS\Serializer\XmlDeserializationVisitor;
 use JMS\Serializer\XmlSerializationVisitor;
 use JMS\Serializer\YamlSerializationVisitor;
+use Metadata\Driver\FileLocator;
 use Metadata\MetadataFactory;
 use PhpCollection\Map;
 use PhpCollection\Sequence;
@@ -153,6 +143,17 @@ abstract class BaseSerializationTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(
             $this->getContent('nullable_skip'),
             $this->serializer->serialize($arr, $this->getFormat(), SerializationContext::create()->setSerializeNull(false))
+        );
+    }
+
+    public function testObjectUsingTypeCasting()
+    {
+        $typeAliasing = new ObjectUsingTypeCasting();
+        $typeAliasing->asString = new ObjectWithToString("8");
+
+        $this->assertEquals(
+            $this->getContent('type_casting'),
+            $this->serialize($typeAliasing)
         );
     }
 
@@ -376,6 +377,32 @@ abstract class BaseSerializationTest extends \PHPUnit_Framework_TestCase
             array('float_trailing_zero', 1.0, 'double'),
             array('float_trailing_zero', 1.0, 'float'),
         );
+    }
+
+    public function testSimpleInternalObject()
+    {
+        $this->factory = new MetadataFactory(new YamlDriver(new FileLocator([
+           'JMS\Serializer\Tests\Fixtures' => __DIR__ .'/metadata/SimpleInternalObject',
+            '' => __DIR__ .'/metadata/SimpleInternalObject'
+        ])));
+        $this->serializer = new Serializer($this->factory, $this->handlerRegistry, $this->objectConstructor, $this->serializationVisitors, $this->deserializationVisitors, $this->dispatcher);
+        $obj = new SimpleInternalObject('foo', 'bar');
+
+        $this->assertEquals($this->getContent('simple_object'), $this->serialize($obj));
+
+        if ($this->hasDeserializer()) {
+            $deserialized = $this->deserialize($this->getContent('simple_object'), get_class($obj));
+            $this->assertEquals(get_class($obj), get_class($deserialized));
+        }
+    }
+
+    public function testSimpleObjectStaticProp()
+    {
+        $this->assertEquals($this->getContent('simple_object'), $this->serialize($obj = new SimpleObjectWithStaticProp('foo', 'bar')));
+
+        if ($this->hasDeserializer()) {
+            $this->assertEquals($obj, $this->deserialize($this->getContent('simple_object'), get_class($obj)));
+        }
     }
 
     public function testSimpleObject()

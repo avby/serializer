@@ -1,21 +1,5 @@
 <?php
 
-/*
- * Copyright 2016 Johannes M. Schmitt <schmittjoh@gmail.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace JMS\Serializer;
 
 use JMS\Serializer\Exception\InvalidArgumentException;
@@ -192,7 +176,7 @@ class XmlDeserializationVisitor extends AbstractVisitor implements NullAwareVisi
             $nodes = $data->xpath($entryName);
         }
 
-        if (!count($nodes)) {
+        if (!\count($nodes)) {
             if (null === $this->result) {
                 return $this->result = array();
             }
@@ -200,7 +184,7 @@ class XmlDeserializationVisitor extends AbstractVisitor implements NullAwareVisi
             return array();
         }
 
-        switch (count($type['params'])) {
+        switch (\count($type['params'])) {
             case 0:
                 throw new RuntimeException(sprintf('The array type must be specified either as "array<T>", or "array<K,V>".'));
 

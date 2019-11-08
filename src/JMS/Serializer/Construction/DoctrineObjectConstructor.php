@@ -1,28 +1,14 @@
 <?php
 
-/*
- * Copyright 2016 Johannes M. Schmitt <schmittjoh@gmail.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace JMS\Serializer\Construction;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
+use JMS\Serializer\AbstractVisitor;
 use JMS\Serializer\DeserializationContext;
 use JMS\Serializer\Exception\InvalidArgumentException;
 use JMS\Serializer\Exception\ObjectConstructionException;
 use JMS\Serializer\Metadata\ClassMetadata;
+use JMS\Serializer\Naming\PropertyNamingStrategyInterface;
 use JMS\Serializer\VisitorInterface;
 
 /**
@@ -77,7 +63,7 @@ class DoctrineObjectConstructor implements ObjectConstructorInterface
         }
 
         // Managed entity, check for proxy load
-        if (!is_array($data)) {
+        if (!\is_array($data)) {
             // Single identifier, load proxy
             return $objectManager->getReference($metadata->name, $data);
         }
@@ -87,11 +73,19 @@ class DoctrineObjectConstructor implements ObjectConstructorInterface
         $identifierList = array();
 
         foreach ($classMetadata->getIdentifierFieldNames() as $name) {
-            if (!array_key_exists($name, $data)) {
+            if ($visitor instanceof AbstractVisitor) {
+                /** @var PropertyNamingStrategyInterface $namingStrategy */
+                $namingStrategy = $visitor->getNamingStrategy();
+                $dataName = $namingStrategy->translateName($metadata->propertyMetadata[$name]);
+            } else {
+                $dataName = $name;
+            }
+
+            if (!array_key_exists($dataName, $data)) {
                 return $this->fallbackConstructor->construct($visitor, $metadata, $data, $type, $context);
             }
 
-            $identifierList[$name] = $data[$name];
+            $identifierList[$name] = $data[$dataName];
         }
 
         // Entity update, load it from database
